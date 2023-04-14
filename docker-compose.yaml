@@ -1,0 +1,85 @@
+version: '3'
+
+services:
+   nginx:
+     image: nginx-alpine     
+     build: 
+       context: ./web-svc
+       dockerfile: Dockerfile-nginx
+     ports:
+      - "9080:80"
+      - "9443:443"
+     networks:
+      - internal
+     depends_on:
+      - php
+      - mysql
+     restart: always
+    ## Enable these volumes in non-prod env
+    #  volumes:
+    #   - ./web-svc/nginx/www/:/var/www/html/
+    #   - ./web-svc/nginx/logs/nginx:/var/log/nginx/ # Keep log on Server
+   php:
+     image: php-fpm-alpine
+     build: 
+       context: ./web-svc
+       dockerfile: Dockerfile-php
+     networks:
+      - internal
+     depends_on:
+      - mysql
+     restart: always
+    ## Enable these volumes in non-prod env (or if needed)
+    #  volumes:
+    #   - ./web-svc/nginx/www/:/var/www/html/
+    #   - ./web-svc/nginx/php/:/usr/local/etc/php/conf.d/
+    #   - ./web-svc/nginx/logs/php.log:/var/log/fpm-php.www.log # Keep PHP log on Server
+   wordpress:
+     image: wordpress:latest
+     environment:
+      - WORDPRESS_DB_HOST=${WORDPRESS_DB_HOST}
+      - WORDPRESS_DB_USER=${WORDPRESS_DB_USER}
+      - WORDPRESS_DB_PASSWORD=${WORDPRESS_DB_PASSWORD}
+      - WORDPRESS_DB_NAME=${WORDPRESS_DB_NAME}
+     ports:
+      - 9081:80
+     networks:
+      - internal
+     depends_on:
+      - php
+      - mysql
+     restart: always
+    ## Enable this volumes in non-prod env (or if needed)
+    #  volumes:
+    #   - ./web-svc/wordpress:/var/www/html/
+   mysql:
+     image: mysql:8.0.27 
+     environment:
+       # The values of the below variables are replaced by .env file
+       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+       MYSQL_DATABASE: ${MYSQL_DATABASE}
+       MYSQL_USER: ${MYSQL_USER}
+       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+     ports:
+       - "13306:3306"
+     networks:
+       - internal
+    ## Enable this volume in non-prod env (or if needed)
+    # volumes:
+    #   - ./web-svc/database/mysql:/var/lib/mysql  # Keep MySQL data on Server
+   phpmyadmin:
+     image: phpmyadmin/phpmyadmin
+     environment:
+       PMA_HOST: mysql
+       PMA_PORT: 3306
+       PMA_ARBITRARY: 1
+     ports:
+       - 8085:80
+     networks:
+       - internal
+     depends_on:
+      - mysql
+     restart: always       
+networks:
+  internal:
+    driver: bridge
